@@ -91,10 +91,10 @@ class Character:
 
 	def gravity(self):
 		if self.y+self.r < self.g:
-			# self.vy+=scPx/30
-			self.vy+=0.10
-			if self.y+self.r+self.vy>self.g:
-				self.vy=self.g-(self.y+self.r)		
+			if g.dave.jetpackActive==False:
+				self.vy+=0.10
+				if self.y+self.r+self.vy>self.g:
+					self.vy=self.g-(self.y+self.r)		
 
 		else:
 			# print("here")
@@ -115,12 +115,20 @@ class Dave(Character):
 		self.trophyCollected=False
 		self.jpCollected=False
 		self.bullet=[]
+		self.jetpackFuel=60*5
+		self.jetpackActive=False
 
 
 	def distanceCircle(self,x,y):
 		return sqrt((self.x-x)**2+(self.y-y)**2)
 
 	def update(self):
+
+		if self.jetpackActive==True:
+			self.jetpackFuel-=1
+			if self.jetpackFuel<=0:
+				self.jpCollected=False
+				self.jetpackActive=False
 
 		self.gravity()
 
@@ -133,8 +141,6 @@ class Dave(Character):
 
 		for p in g.platforms:
 			CollisionDetect(self,p)
-
-		#
 
 		#collecting objects
 		for gm in g.gems:
@@ -154,6 +160,7 @@ class Dave(Character):
 				g.trophy.remove(tr)
 				del tr
 				self.trophyCollected=True
+				g.score+=1000
 
 		for jp in g.jetpack:
 			if self.distanceCircle(jp.cx,jp.cy)<=self.r+scPx/2:
@@ -167,7 +174,7 @@ class Dave(Character):
 				image(img_dict['Fire'],self.x-self.r-g.x,self.y-self.r,2*self.r,2*self.r,0,0,16,16)
 				g.lives-=1
 				# print(g.lives)
-				time.sleep(3)
+				time.sleep(1.5)
 				self.x=resetXY[g.level-1][0]		#resets to start of the level
 				self.y=resetXY[g.level-1][1]
 				self.vx=0
@@ -184,7 +191,7 @@ class Dave(Character):
 				g.monster.remove(k)
 				del k
 				# print(g.lives)
-				time.sleep(3)
+				time.sleep(1.5)
 				self.x=resetXY[g.level-1][0]		#resets to start of the level
 				self.y=resetXY[g.level-1][1]
 				self.vx=0
@@ -199,6 +206,8 @@ class Dave(Character):
 					g.monster.remove(m)
 					del m
 
+		# elif self.jetpackActive==True:
+
 
 		self.x += self.vx
 		self.y += self.vy
@@ -209,6 +218,8 @@ class Dave(Character):
 
 		elif self.x<g.w/2:
 			g.x=0
+
+
 
 class Door:
 	def __init__(self,x,y,n=1,img=img_dict['Door'],size=scPx):
@@ -280,15 +291,16 @@ class Trophy(Killer):
 		Killer.__init__(self,x,y,img_dict['Trophy'],5)
 
 class Bullet:
-	def __init__(self,x,y,r=scPx*0.75,img=img_dict['Bullet'],w=scPx*0.75,h=scPx/4,vx=scPx/8,target='Enemy'):
+	def __init__(self,x,y,r=scPx*0.75,img=img_dict['Bullet'],w=scPx*0.75,h=scPx/4,vx=scPx/8,target='Enemy',owner=None):
 		self.x=x
 		self.y=y
-		self.r=scPx*0.75
+		self.r=r
 		self.img=img
 		self.w=w
 		self.h=h
 		self.vx=vx
 		self.target=target
+		self.owner=owner
 	
 	def update(self):
 		self.x+=self.vx
@@ -298,6 +310,7 @@ class Bullet:
 	def display(self):
 		self.update()
 		image(self.img,self.x-g.x,self.y,self.w,self.h)
+		ellipse(self.x-g.x+self.w/2,self.y+self.r/2,self.r*2,self.r*2)
 		
 		if self.target=='Enemy':
 			for m in g.monster:
@@ -315,16 +328,21 @@ class Bullet:
 				del self
 
 		elif self.target=='Dave':
-			if g.dave.distanceCircle(self.x,self.y)<=g.dave.r+self.r:
+			if g.dave.distanceCircle(self.x+self.r,self.y+self.r/2)<=g.dave.r+self.r:
+				print("hit dave!")
 				g.lives-=1
+				time.sleep(1.5)
 				g.dave.x=resetXY[g.level-1][0]
 				g.dave.y=resetXY[g.level-1][1]
-				self.mbullet=False
+				self.owner.mbullet=False
+				self.owner.bullet.remove(self)
 				del self
 
 			elif self.x-g.x<=0:
-				self.mbullet=False
-				del self
+				print("bullet left the screen to the left!")
+				self.owner.mbullet=False
+				self.owner.bullet.remove(self)
+				del self # Simon Says-- Ask Yasir: since Monster has reference to the bullet, is "del self" ineffective?
 
 class Monster(Character):
 	def __init__(self,x,y,r,img,g,F,theta,r1):
@@ -350,23 +368,15 @@ class Monster(Character):
 			# bottom=self.cx+self.r1-scPx
 			print(self.y)
 			if scPx*5<self.y<scPx*6:
-				self.bullet.append(Bullet(self.x,scPx*5.5,r=scPx*0.75,img=img_dict['Bullet2'],w=scPx*0.75,h=scPx/4,vx=-(scPx/8),target='Dave'))
+				self.bullet.append(Bullet(self.x,scPx*5.5,r=scPx*0.15,img=img_dict['Bullet2'],w=scPx*0.75,h=scPx/4,vx=-(scPx/8),target='Dave',owner=self))
 				print('oh nooo')
-				for i in self.bullet:	
-					print(i.x,i.y)
-					i.display()
+
 				self.mbullet=True
 
-			# if g.dave.distanceCircle(self.x,self.y)<=g.dave.r+b.r:
-			# 	g.lives-=1
-			# 	g.dave.x=resetXY[g.level-1][0]
-			# 	g.dave.y=resetXY[g.level-1][1]
-			# 	self.mbullet=False
-			# 	del b
-
-			# if self.x-g.x<=0:
-			# 	self.mbullet=False
-			# 	del b				
+		for i in self.bullet:	
+			print(i.x,i.y)
+			i.display()
+				
 
 
 
@@ -381,7 +391,6 @@ class Game:
 		self.level=2
 		self.lives=3
 		self.score=0
-
 
 		self.dave=Dave(1.5*scPx+scPx/2,9*scPx+scPx/2,0.90*scPx,img_dict['Dave'],10*scPx,4,16,16)
 		self.gems=[]
@@ -426,6 +435,8 @@ class Game:
 		self.trophy.append(Trophy(scPx*11,scPx*3))
 
 	def level2(self):
+		self.clearlevel()
+
 		self.dave.x=resetXY[1][0]
 		self.dave.y=resetXY[1][1]
 
@@ -434,8 +445,7 @@ class Game:
 		for i in range(10):
 			WallPlatforms2.append([0,i+1,1])
 		Killers2=[[5,6],[9,6],[13,6],[14,6],[19,6],[23,6],[27,6],[31,6],[35,6],[36,6],[40,6],[44,6],[47,6],[52,6],[53,6]]
-		# Fires2=[[64,7]]
-		Fires2=[]
+		Fires2=[[62,7],[63,7],[63,8],[64,8],[64,9],[65,9],[68,9],[69,9],[69,8],[70,8],[70,7],[71,7]]
 		Gems2=[[5,4],[14,4],[19,4],[52,4],[56,4]]
 
 		Platforms2=[[63,5,1],[66,5,1]]
@@ -464,21 +474,21 @@ class Game:
 		self.jetpack.append(Gem(scPx*66,scPx*9,img_dict['Jetpack']))
 		self.trophy.append(Trophy(scPx*67,scPx*9))
 
-	def transition(self):
-		self.state='transition'
-		self.clearlevel()
-		self.platforms.append(Platform(0,scPx*5,20))
-		self.platforms.append(Platform(0,scPx*7,20))
-		self.platforms.append(Platform(0,scPx*6,1,img_dict['Door']))
+	# def transition(self):
+	# 	self.state='transition'
+	# 	self.clearlevel()
+	# 	self.platforms.append(Platform(0,scPx*5,20))
+	# 	self.platforms.append(Platform(0,scPx*7,20))
+	# 	self.platforms.append(Platform(0,scPx*6,1,img_dict['Door']))
 
-		self.dave.x=scPx*1.5
-		self.dave.y=scPx*6+scPx//2
-		self.dave.vx=4
-		self.x=0
+	# 	self.dave.x=scPx*1.5
+	# 	self.dave.y=scPx*6+scPx//2
+	# 	self.dave.vx=4
+	# 	self.x=0
 
-		if self.dave.x in range(scPx*19,scPx*20) and self.dave.y in range (scPx*6,scPx*7):
-			self.clearlevel()
-			self.level+=1
+	# 	if self.dave.x in range(scPx*19,scPx*20) and self.dave.y in range (scPx*6,scPx*7):
+	# 		self.clearlevel()
+	# 		self.level+=1
 
 	def levelChange(self):
 
@@ -505,9 +515,14 @@ class Game:
 		if self.level==1:
 			if self.dave.x in range(scPx*11,scPx*12) and self.dave.y in range (scPx*9,scPx*10) and self.dave.trophyCollected==True:
 				
-				self.transition()
+				self.level2()
+				self.level+=1
 
-				# self.levelChange()
+		if self.level==2:
+			if self.dave.x in range(scPx*11,scPx*12) and self.dave.y in range (scPx*9,scPx*10) and self.dave.trophyCollected==True:
+			
+				self.clearlevel()
+				g.state='Game Over'
 
 	def display(self):
 		
@@ -520,6 +535,9 @@ class Game:
 		if self.dave.gunCollected==True:
 			text("GUN",scPx*13,scPx*11.5)
 			image(img_dict['Gun'], scPx*16,scPx*11,scPx,scPx)
+
+		if self.dave.jpCollected==True:
+			text("JETPACK",scPx*4,scPx*12.5)
 
 		for i in self.platforms:
 			i.display()
@@ -537,6 +555,8 @@ class Game:
 			i.display()
 		for i in self.dave.bullet:
 			i.display()
+		# for i in self.dave.bullet:
+		# 	i.display()
 		for i in self.monster:
 			i.display()
 		for i in self.jetpack:
@@ -591,20 +611,30 @@ def keyPressed():
 		if keyCode==LEFT:
 			g.dave.dir=-1
 			if g.dave.x>=0:
-				g.dave.vx= -(scPx/10)
+				g.dave.vx= -(scPx/12)
 			# print(g.x)
 		if keyCode==RIGHT:
 			g.dave.dir=1
-			g.dave.vx= scPx/10
+			g.dave.vx= scPx/12
 			# print(g.x)
 		if keyCode==UP:
 			g.dave.jump=True
+			if g.dave.jetpackActive==True:
+				g.dave.vy-=scPx/12
+		if keyCode==DOWN:
+			if g.dave.jetpackActive==True:
+				g.dave.vy+=scPx/12	
 
 		#instantiate bullet when ctrl key is pressed
 		if keyCode==17 and g.dave.gunCollected==True and g.dave.bullet==[]:
-			g.dave.bullet.append(Bullet(g.dave.x,g.dave.y))
+			g.dave.bullet.append(Bullet(g.dave.x,g.dave.y,r=0.15*scPx))
 			print("bang")
 
+		if keyCode==73 and g.dave.jpCollected==True:
+			if g.dave.jetpackActive==False:
+				g.dave.jetpackActive=True
+			elif g.dave.jetpackActive==True:
+				g.dave.jetpackActive=False
 
 	elif g.state =='menu':
 		if keyCode==57:
@@ -617,3 +647,8 @@ def keyReleased():
 		g.dave.vx=0
 	if keyCode==UP:
 		g.dave.jump=False
+		if g.dave.jetpackActive==True:
+			g.dave.vy=0
+	if keyCode==DOWN:
+		if g.dave.jetpackActive==True:
+			g.dave.vy=0
