@@ -474,7 +474,7 @@ class Game:
 		self.gun.append(Gem(10*scPx,4*scPx,img_dict['Gun']))
 		self.jetpack.append(Gem(scPx*66,scPx*9,img_dict['Jetpack']))
 		self.trophy.append(Trophy(scPx*67,scPx*9))
-		self.door.append(69*scPx,2*scPx)
+		self.door.append(Door(69*scPx,2*scPx))
 
 	def levelChange(self):
 
