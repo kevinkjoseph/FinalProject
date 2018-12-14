@@ -1,7 +1,7 @@
-# add_library('minim')
+add_library('minim')
 import os,math,time,random
 path = os.getcwd()
-# player = Minim(this)
+player = Minim(this)
 
 scale = 2	#size of the game
 scPx=16*scale
@@ -27,6 +27,8 @@ img_dict['Monster']=loadImage(path+"/resources/images/MonsterTransparent.png")
 img_dict['Life']=loadImage(path+"/resources/images/life.png")
 img_dict['Bullet']=loadImage(path+"/resources/images/bullet1.png")
 img_dict['Bullet2']=loadImage(path+"/resources/images/bullet2.png")
+img_dict['Menu']=loadImage(path+"/resources/images/dangerousdave.png")
+img_dict['Instructions']=loadImage(path+"/resources/images/instructions1.png")
 
 def CollisionDetect(a, b):
 	
@@ -87,7 +89,6 @@ class Character:
 
 		stroke(255)
 		noFill()
-		ellipse(self.x-g.x,self.y,2*self.r,2*self.r)
 
 	def gravity(self):
 		if self.y+self.r < self.g:
@@ -266,8 +267,7 @@ class Gem:	#also to be used by the gun
 
 	def display(self):
 		image(self.img,(self.x-g.x),self.y,scPx,scPx)
-		noFill()
-		ellipse(self.cx-g.x,self.cy,scPx,scPx)
+		
 
 class Killer:
 	def __init__(self,x,y,img=img_dict['Purple'],F=4):
@@ -310,7 +310,7 @@ class Bullet:
 	def display(self):
 		self.update()
 		image(self.img,self.x-g.x,self.y,self.w,self.h)
-		ellipse(self.x-g.x+self.w/2,self.y+self.r/2,self.r*2,self.r*2)
+		# ellipse(self.x-g.x+self.w/2,self.y+self.r/2,self.r*2,self.r*2)
 		
 		if self.target=='Enemy':
 			for m in g.monster:
@@ -388,9 +388,10 @@ class Game:
 		self.pause=False
 		self.g=g
 		self.x=0
-		self.level=2
+		self.level=1
 		self.lives=3
 		self.score=0
+		self.music = player.loadFile(path+"/resources/sounds/music.mp3")
 
 		self.dave=Dave(1.5*scPx+scPx/2,9*scPx+scPx/2,0.90*scPx,img_dict['Dave'],10*scPx,4,16,16)
 		self.gems=[]
@@ -473,22 +474,7 @@ class Game:
 		self.gun.append(Gem(10*scPx,4*scPx,img_dict['Gun']))
 		self.jetpack.append(Gem(scPx*66,scPx*9,img_dict['Jetpack']))
 		self.trophy.append(Trophy(scPx*67,scPx*9))
-
-	# def transition(self):
-	# 	self.state='transition'
-	# 	self.clearlevel()
-	# 	self.platforms.append(Platform(0,scPx*5,20))
-	# 	self.platforms.append(Platform(0,scPx*7,20))
-	# 	self.platforms.append(Platform(0,scPx*6,1,img_dict['Door']))
-
-	# 	self.dave.x=scPx*1.5
-	# 	self.dave.y=scPx*6+scPx//2
-	# 	self.dave.vx=4
-	# 	self.x=0
-
-	# 	if self.dave.x in range(scPx*19,scPx*20) and self.dave.y in range (scPx*6,scPx*7):
-	# 		self.clearlevel()
-	# 		self.level+=1
+		self.door.append(69*scPx,2*scPx)
 
 	def levelChange(self):
 
@@ -512,6 +498,9 @@ class Game:
 		self.gunCollected=False
 
 	def checkWin(self):
+		if self.lives<0:
+			self.state='over'
+
 		if self.level==1:
 			if self.dave.x in range(scPx*11,scPx*12) and self.dave.y in range (scPx*9,scPx*10) and self.dave.trophyCollected==True:
 				
@@ -538,6 +527,7 @@ class Game:
 
 		if self.dave.jpCollected==True:
 			text("JETPACK",scPx*4,scPx*12.5)
+
 
 		for i in self.platforms:
 			i.display()
@@ -586,24 +576,41 @@ def draw():
 	if g.state == "menu":
 		background(0)
 		textSize(36)
-		
+		font = loadFont("8BITWONDERNominal-32.vlw")
+		textAlign(LEFT, CENTER)
+		textFont(font, 0.75*scPx)
+		image(img_dict['Menu'],g.w//3,g.h//19,scPx*10,scPx*4)
 	
-		text("Type the H and W hotline to start the game",g.w//2.5+10, g.h//3+40)
+		if g.w//2.5 < mouseX < g.w//2.5 + 220 and g.h//3 < mouseY < g.h//3+50:
+			fill(255,0,0)
+		else:        
+			fill(255)
+		text("Play Game",g.w//2.5+10, g.h//3+40)
+		# fill(0,0,255)
+		# rect(g.w//2.5, g.h//3+100, 220,50)
+		if g.w//2.5 < mouseX < g.w//2.5 + 220 and g.h//3+100 < mouseY < g.h//3+150:
+			fill(255,0,0)
+		else:        
+			fill(255)
+		text("Instructions", g.w//2.5+10, g.h//3+140)
 		
 	elif g.state == "play" or g.state=='transition':
 		if not g.pause:
+			g.music.play()
 			background(0)
 			stroke(255)
-			line(0,scPx*11,scPx*20,scPx*11)
-			line(0,scPx*1,scPx*20,scPx*1)
-			line(scPx,0,scPx,scPx*13)
-			# line(0,scPx*7,scPx*20,scPx*7)
-			
+
 			g.display()
-		else:
-			fill(255,0,0)
-			textSize(30)
-			text("Paused",g.w//2,g.h//2)
+	
+	elif g.state=='over':
+		background(0)
+		text("GAME OVER",scPx*6,scPx*10)
+
+			
+	else:
+		fill(255,0,0)
+		textSize(30)
+		text("Paused",g.w//2,g.h//2)
 
 def keyPressed():
 	if g.state=='play' or g.state=='transition':
@@ -639,6 +646,17 @@ def keyPressed():
 	elif g.state =='menu':
 		if keyCode==57:
 			g.state='play'
+
+def mouseClicked():
+	if g.state == "menu" and g.w//2.5 < mouseX < g.w//2.5 + 220 and g.h//3 < mouseY < g.h//3+50:
+		g.state="play"
+
+	elif g.state == "menu" and g.w//2.5 < mouseX < g.w//2.5 + 220 and g.h//3 < mouseY < g.h//3+150:
+		g.state="instructions"
+	elif g.state == "instructions" and 0 < mouseX < g.w and 0 < mouseY < g.h:
+		g.state="menu"
+	if g.state=="over":
+		g.state="menu"
 
 def keyReleased():
 	if keyCode==LEFT:
