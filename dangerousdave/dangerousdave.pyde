@@ -6,7 +6,7 @@ path = os.getcwd()
 scale = 2	#size of the game
 scPx=16*scale
 
-
+resetXY=[[scPx*2.5,scPx*9.5],[scPx*3.5,scPx*6.5]]	#default coordinates for each level
 
 img_dict={}
 img_dict['Beam']=loadImage(path+"/resources/images/beam.png") #Image tile for Bomb
@@ -21,8 +21,10 @@ img_dict['Purple']=loadImage(path+"/resources/images/purple_things.png")
 img_dict['Trophy']=loadImage(path+"/resources/images/trophy.png")
 img_dict['Corner']=loadImage(path+"/resources/images/wall_corner.png")
 img_dict['Wall']=loadImage(path+"/resources/images/wall.png")
-img_dict['Dave']=loadImage(path+"/resources/images/Dave64.png")
+img_dict['Dave']=loadImage(path+"/resources/images/DaveTransparent.png")
 img_dict['Gem']=loadImage(path+"/resources/images/gem.png")
+img_dict['Monster']=loadImage(path+"/resources/images/MonsterTransparent.png")
+img_dict['Life']=loadImage(path+"/resources/images/life.png")
 
 def CollisionDetect(a, b):
 	
@@ -38,28 +40,11 @@ def CollisionDetect(a, b):
 		return True		
 	# collision from lower side of the block
 	if (b.x <= a.x+a.r <= b.x+b.size*b.n or b.x <= a.x-a.r <= b.x+b.size*b.n) and a.y-a.r+a.vy <= b.y+b.size and a.y-a.r>b.y:
-		a.vy=1
+		a.vy=0
 		# print("collision")
 		return True
 
 	return False 
-	# testX=-1
-	# testY=-1
-	# if x+r+vx<x2:
-	# 	testX=x2-(x+r+vx)
-	# elif x-r+vx>x2+w:
-	# 	testX=x2+w-(x-r+vx)
-
-	# if y-r+vy>y2+h:
-	# 	testY=(y2+h)-(y-r+vy)
-	
-
-	# distance=sqrt(testX**2+testY**2)
-
-	# if distance<=0:
-	# 	return True
-	# else:
-	# 	return False
 
 class Character:
 	def __init__(self,x,y,r,img,g,F,h,w):
@@ -70,7 +55,7 @@ class Character:
 		self.r=r//2
 		self.img=img
 		self.g=g #ground level
-		self.f=0
+		self.f=2
 		self.F=F
 		self.dir=1	#1 for right, -1 for left
 		self.h=h
@@ -85,7 +70,6 @@ class Character:
 
 	def display(self):
 		self.update()
-		
 		if self.vx!=0:
 			
 			self.f = (self.f+0.3)%self.F
@@ -94,6 +78,11 @@ class Character:
 			image(self.img,self.x-self.r-g.x,self.y-self.r,2*self.r,2*self.r,int(self.f)*self.w,0,int(self.f+1)*self.w,self.h)
 		elif self.dir < 0:
 			image(self.img,self.x-self.r-g.x,self.y-self.r,2*self.r,2*self.r,int(self.f+1)*self.w,0,int(self.f)*self.w,self.h)
+
+	def killDisplay(self):
+		self.f = (self.f+0.3)%self.F
+		image(img_dict['Fire'],self.x-self.r-g.x,self.y-self.r,2*self.r,2*self.r,int(self.f)*16,0,int(self.f+1)*self.w,self.h)
+
 
 		stroke(255)
 		noFill()
@@ -118,31 +107,31 @@ class Character:
 			else:
 				self.g=g.g
 
+
 class Dave(Character):
 	def __init__(self,x,y,r,img,g,F,h,w):
 		Character.__init__(self,x,y,r,img,g,F,h,w)
 		self.jump=False
 		self.score=0
-		self.lives=3
+		self.gunCollected=False
+		self.trophyCollected=False
 		print(self.score)
 
 	def distanceCircle(self,x,y):
 		return sqrt((self.x-x)**2+(self.y-y)**2)
 
 	def update(self):
-		# print(self.y, self.r, self.g)
 
 		self.gravity()
+
 		if self.jump==True and self.y+self.r==self.g:
-			# self.vy-=(scPx//9)
-			self.vy-=4
-
-		# if self.x>=o.8*g.w:
-		# 	g.x += 0.8+g.w
-
+			self.vy-= scPx/8
 
 		for p in g.platforms:
 			CollisionDetect(self,p)
+
+		# for p in g.pipe:
+		# 	CollisionDetect(self,p)
 
 		for gm in g.gems:
 			if self.distanceCircle(gm.cx,gm.cy)<=self.r+scPx/2:
@@ -150,18 +139,42 @@ class Dave(Character):
 				g.gems.remove(gm)
 				del gm
 
+		for gn in g.gun:
+			if self.distanceCircle(gn.cx,gn.cy)<=self.r+scPx/2:
+				g.gun.remove(gn)
+				del gn
+				self.gunCollected=True
 
+		for tr in g.trophy:
+			if self.distanceCircle(tr.cx,tr.cy)<=self.r+scPx/2:
+				g.trophy.remove(tr)
+				del tr
+				self.trophyCollected=True
+
+		#to check for death condition
+		for k in g.killer:
+			if self.distanceCircle(k.cx,k.cy)<=self.r+scPx/2:
+				image(img_dict['Fire'],self.x-self.r-g.x,self.y-self.r,2*self.r,2*self.r,0,0,16,16)
+				g.lives-=1
+				print(g.lives)
+				time.sleep(3)
+				self.x=resetXY[g.level-1][0]		#resets to start of the level
+				self.y=resetXY[g.level-1][1]
+				self.vx=0
+				self.vy=0
+				self.dir=1
+				self.f=2
+				g.x=0	#if screen is not at beginning, it will move back
 
 		self.x += self.vx
 		self.y += self.vy
-		# print(self.vx,self.vy)
 
 		if self.x > g.w/2 and g.level>1:
 			g.x+=self.vx
 			print(self.vx)
-			# for i in range(10):
-			# 	g.x += g.w*0.08
-			# 	time.sleep(0.01)
+
+		elif self.x<g.w/2:
+			g.x=0
 
 class Door:
 	def __init__(self,x,y,n=1,img=img_dict['Door'],size=scPx):
@@ -183,8 +196,6 @@ class Platform:
 		self.img=img
 		self.size=size
 
-
-
 	def display(self):
 		for i in range(self.n):
 			image(self.img,(self.x-g.x)+self.size*i,self.y,self.size,self.size)
@@ -196,13 +207,11 @@ class Pipe(Platform):
 	def __init__(self,x,y,n=1,img=img_dict['Pipe'],size=scPx):
 		Platform.__init__(self,x,y,n=1,img=img_dict['Pipe'],size=scPx)
 
-
-
 	def display(self):
 		for i in range(self.n):
 			image(self.img,self.x+self.size*i,self.y,self.size,self.size,0,0,16,16)
 
-class Gem:
+class Gem:	#also to be used by the gun
 	def __init__(self,x,y,img=img_dict['Gem']):
 		self.x=x
 		self.y=y
@@ -213,22 +222,45 @@ class Gem:
 	def display(self):
 		image(self.img,(self.x-g.x),self.y,scPx,scPx)
 		noFill()
-		ellipse(self.cx,self.cy,scPx,scPx)
+		ellipse(self.cx-g.x,self.cy,scPx,scPx)
 
-class Killer:	#to be inherited by purple and revolving monster
-	def __init__(self,x,y,img=img_dict['Purple']):
+class Killer:
+	def __init__(self,x,y,img=img_dict['Purple'],F=4):
 		self.x=x
 		self.y=y
 		self.img=img
 		self.cx=x+scPx/2
 		self.cy=y+scPx/2
+		self.f=0
+		self.F=4
 
 
 	def display(self):
-		image(self.img,(self.x-g.x),self.y,scPx,scPx)
-		noFill()
-		ellipse(self.cx,self.cy,scPx,scPx)
+		self.f = (self.f+0.1)%self.F
+		image(self.img,self.x-g.x,self.y,scPx,scPx,int(self.f)*16,0,int(self.f+1)*16,16)
 
+		# image(self.img,(self.x-g.x),self.y,scPx,scPx)
+
+class Trophy(Killer):
+	def __init__(self,x,y):
+		Killer.__init__(self,x,y,img_dict['Trophy'],5)
+
+# class Bullet:
+
+class Monster(Character):
+	def __init__(self,x,y,r,img,g,F,theta,r1):
+		Character.__init__(self,x,y,r,img,g,F,21,21)
+		self.theta = theta
+		self.r1 = r1
+		self.cx = x
+		self.cy = y
+
+	def update(self):
+		self.f = (self.f+0.4)%self.F
+		self.theta = self.theta + 3.5
+		
+		self.x = self.cx + self.r1 * cos(self.theta*PI/180)
+		self.y = self.cy + self.r1 * sin(self.theta*PI/180)
 
 class Game:
 	def __init__(self,w,h,g):
@@ -238,65 +270,91 @@ class Game:
 		self.pause=False
 		self.g=g
 		self.x=0
+		self.level=2
+		self.lives=3
 
 
+		self.dave=Dave(1.5*scPx+scPx/2,9*scPx+scPx/2,0.90*scPx,img_dict['Dave'],10*scPx,4,16,16)
 		self.gems=[]
 		self.platforms=[]
 		self.door=[]
 		self.pipe=[]
 		self.killer=[]
-		self.winlevel=0
-		self.level=1
+		self.gun=[]
+		self.trophy=[]
 		self.levelChange()
 
 	def level1(self):
-		
-		Platforms1=[[0,1,18],[5,6,1],[9,6,1],[13,6,1],[17,6,1],[3,4,1],[7,4,1],[11,4,1],[15,4,1],[4,8,3],[10,8,6],[10,9,1],[0,10,20]]
+
+		self.dave.x=resetXY[0][0]
+		self.dave.y=resetXY[0][1]
+
+		#adding platforms
+		Platforms1=[[0,1,18],[0,6,2],[5,6,1],[9,6,1],[13,6,1],[17,6,1],[3,4,1],[7,4,1],[11,4,1],[15,4,1],[4,8,3],[10,8,6],[10,9,1],[0,10,19]]
+		Gems1=[[1,5],[3,3],[7,3],[15,3],[5,5],[9,5],[13,5],[17,5]]
 
 		for i in Platforms1:
 			self.platforms.append(Platform(scPx*i[0],scPx*i[1],i[2]))
 
-		for i in range(1,10):
+		for i in range(1,6):
+			self.platforms.append(Platform(0,scPx*i,1))
+		for i in range(7,10):
 			self.platforms.append(Platform(0,scPx*i,1))
 
 		for i in range(1,10):
 			self.platforms.append(Platform(18*scPx,scPx*i,1))
 		
-		Gems1=[[1,7],[3,3],[7,3],[11,3],[15,3],[5,5],[9,5],[13,5],[17,5]]
-
+		#adding gems
 		for i in Gems1:
 			self.gems.append(Gem(scPx*i[0],scPx*i[1]))
-
-
+		
+		#adding the rest
 		self.door.append(Door(scPx*11,scPx*9))
-		self.pipe.append(Pipe(scPx*1,scPx*9))
+		self.pipe.append(Pipe(scPx*1,scPx*9))		
 		self.killer.append(Killer(scPx*11,scPx*7))
-
+		self.trophy.append(Trophy(scPx*11,scPx*3))
 
 	def level2(self):
-		c.x=scPx*3
-		c.y=scPx*6
+		self.dave.x=resetXY[1][0]
+		self.dave.y=resetXY[1][1]
 
-		# self.g=scPx*8
+		BluePlatforms2=[[0,7,80],[0,3,80]]
+		WallPlatforms2=[[0,1,80],[0,2,80],[0,8,80],[0,9,80],[0,10,80]]
+		for i in range(10):
+			WallPlatforms2.append([0,i+1,1])
+		Killers2=[[5,6],[9,6],[13,6],[14,6],[19,6],[23,6],[27,6],[31,6]]
+		Gems2=[[5,4],[14,4],[19,4]]
 
+		for i in BluePlatforms2:
+			self.platforms.append(Platform(i[0]*scPx,i[1]*scPx,i[2],img_dict['Blue']))
 
-		self.platforms.append(Platform(0,scPx*8,20))
-		self.platforms.append(Platform(scPx*23,scPx*8,20))
-		self.platforms.append(Platform(0,scPx*4,20))
+		for i in WallPlatforms2:
+			self.platforms.append(Platform(i[0]*scPx,i[1]*scPx,i[2],img_dict['Wall']))
 
-		self.gems.append(Gem(scPx,scPx*7))
+		for i in Killers2:
+			self.killer.append(Killer(i[0]*scPx,i[1]*scPx))
 
+		for i in Gems2:
+			self.gems.append(Gem(i[0]*scPx,i[1]*scPx))
 
+		self.killer.append(Monster(scPx*36,scPx*5.5,scPx,img_dict['Monster'],scPx*8,4,0,scPx))
+		self.gun.append(Gem(10*scPx,4*scPx,img_dict['Gun']))
 
 	def transition(self):
+		self.state='transition'
 		self.clearlevel()
 		self.platforms.append(Platform(0,scPx*5,20))
 		self.platforms.append(Platform(0,scPx*7,20))
-		c.x=scPx//8
-		c.y=scPx*6+c.r//2
-		c.vx=scPx//5
-		time.sleep(4)
-		self.level+=1
+		self.platforms.append(Platform(0,scPx*6,1,img_dict['Door']))
+
+		self.dave.x=scPx*1.5
+		self.dave.y=scPx*6+scPx//2
+		self.dave.vx=4
+		self.x=0
+
+		if self.dave.x in range(scPx*19,scPx*20) and self.dave.y in range (scPx*6,scPx*7):
+			self.clearlevel()
+			self.level+=1
 
 	def levelChange(self):
 
@@ -310,11 +368,16 @@ class Game:
 		del self.platforms[:]
 		del self.door[:]
 		del self.pipe[:]
+		del self.gems[:]
+		del self.killer[:]
+		del self.gun[:]
+		del self.trophy[:]
+		self.dave.dir=1
+		self.dave.f=2
 
 	def checkWin(self):
 		if self.level==1:
-			if c.x in range(scPx*11,scPx*12) and c.y in range (scPx*9,scPx*10):
-				self.winlevel=1
+			if self.dave.x in range(scPx*11,scPx*12) and self.dave.y in range (scPx*9,scPx*10) and self.dave.trophyCollected==True:
 				
 				self.transition()
 
@@ -322,6 +385,11 @@ class Game:
 
 	def display(self):
 		
+		self.dave.display()
+
+		font = loadFont("8BITWONDERNominal-32.vlw")
+		textAlign(LEFT, CENTER)
+		textFont(font, 0.75*scPx)
 
 
 		for i in self.platforms:
@@ -332,11 +400,25 @@ class Game:
 			i.display()
 		for i in self.gems:
 			i.display()
+		for i in self.killer:
+			i.display()
+		for i in self.gun:
+			i.display()
+		for i in self.trophy:
+			i.display()
+
+		text("SCORE: {0}".format(self.dave.score),0,scPx/2)
+
+		text("DAVES:",scPx*13,scPx/2)
+		imageMode(CENTER)
+		for i in range(self.lives):
+			image(img_dict['Life'],scPx*(17.5+i),scPx/2,scPx,0.75*scPx)
+		imageMode(CORNER)
 
 		self.checkWin()
 
 
-c=Dave(1.5*scPx+scPx/2,9*scPx+scPx/2,0.90*scPx,img_dict['Dave'],10*scPx,4,16,16)
+
 g=Game(20*scPx,13*scPx,10*scPx)
 
 
@@ -344,10 +426,7 @@ def setup():
 	size(20*16*scale,13*16*scale)
 	background(0)
 	
-def draw():
-
-
-	
+def draw():	
 
 	if g.state == "menu":
 		background(0)
@@ -356,46 +435,48 @@ def draw():
 	
 		text("Type the H and W hotline to start the game",g.w//2.5+10, g.h//3+40)
 		
-	elif g.state == "play":
+	elif g.state == "play" or g.state=='transition':
 		if not g.pause:
 			background(0)
 			stroke(255)
-			line(0,scPx*10,scPx*20,scPx*10)
+			line(0,scPx*11,scPx*20,scPx*11)
+			line(0,scPx*1,scPx*20,scPx*1)
 			line(scPx,0,scPx,scPx*13)
-			line(0,scPx*7,scPx*20,scPx*7)
+			# line(0,scPx*7,scPx*20,scPx*7)
 			
 			g.display()
-			c.display()
 		else:
 			fill(255,0,0)
 			textSize(30)
 			text("Paused",g.w//2,g.h//2)
 
 def keyPressed():
-	if g.state=='play':
+	if g.state=='play' or g.state=='transition':
 
 		if keyCode==LEFT:
-			c.dir=-1
-			if c.x>=0:
-				c.vx= -(scPx/10)
+			g.dave.dir=-1
+			if g.dave.x>=0:
+				g.dave.vx= -(scPx/10)
 			print(g.x)
 		if keyCode==RIGHT:
-			c.dir=1
-			c.vx= scPx/10
+			g.dave.dir=1
+			g.dave.vx= scPx/10
 			print(g.x)
 		if keyCode==UP:
-			c.jump=True
+			g.dave.jump=True
+
+
 	elif g.state =='menu':
 		if keyCode==57:
 			g.state='play'
 
 def keyReleased():
 	if keyCode==LEFT:
-		c.vx=0
+		g.dave.vx=0
 	if keyCode==RIGHT:
-		c.vx=0
+		g.dave.vx=0
 	if keyCode==UP:
-		c.jump=False
+		g.dave.jump=False
 
 
 """
