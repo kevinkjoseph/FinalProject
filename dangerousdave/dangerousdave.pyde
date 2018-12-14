@@ -1,5 +1,5 @@
 # add_library('minim')
-import os,math,time
+import os,math,time,random
 path = os.getcwd()
 # player = Minim(this)
 
@@ -26,6 +26,7 @@ img_dict['Gem']=loadImage(path+"/resources/images/gem.png")
 img_dict['Monster']=loadImage(path+"/resources/images/MonsterTransparent.png")
 img_dict['Life']=loadImage(path+"/resources/images/life.png")
 img_dict['Bullet']=loadImage(path+"/resources/images/bullet1.png")
+img_dict['Bullet2']=loadImage(path+"/resources/images/bullet2.png")
 
 def CollisionDetect(a, b):
 	
@@ -112,6 +113,7 @@ class Dave(Character):
 		self.jump=False
 		self.gunCollected=False
 		self.trophyCollected=False
+		self.jpCollected=False
 		self.bullet=[]
 
 
@@ -126,8 +128,8 @@ class Dave(Character):
 		if self.jump==True and self.y+self.r==self.g:
 			self.vy-= scPx/8
 			
-		if self.vy!=0:
-			print(self.g)
+		# if self.vy!=0:
+		# 	print(self.g)
 
 		for p in g.platforms:
 			CollisionDetect(self,p)
@@ -153,6 +155,12 @@ class Dave(Character):
 				del tr
 				self.trophyCollected=True
 
+		for jp in g.jetpack:
+			if self.distanceCircle(jp.cx,jp.cy)<=self.r+scPx/2:
+				g.jetpack.remove(jp)
+				del jp
+				self.jpCollected=True
+
 		#collisions with purple killer things
 		for k in g.killer:
 			if self.distanceCircle(k.cx,k.cy)<=self.r+scPx/2:
@@ -170,7 +178,7 @@ class Dave(Character):
 
 		#collisions with monsters
 		for k in g.monster:
-			if self.distanceCircle(k.cx,k.cy)<=self.r+scPx/2:
+			if self.distanceCircle(k.x,k.y)<=self.r+scPx/2:
 				image(img_dict['Fire'],self.x-self.r-g.x,self.y-self.r,2*self.r,2*self.r,0,0,16,16)
 				g.lives-=1
 				g.monster.remove(k)
@@ -272,14 +280,15 @@ class Trophy(Killer):
 		Killer.__init__(self,x,y,img_dict['Trophy'],5)
 
 class Bullet:
-	def __init__(self,x,y,r=scPx*0.75,img=img_dict['Bullet'],w=scPx*0.75,h=scPx/4):
+	def __init__(self,x,y,r=scPx*0.75,img=img_dict['Bullet'],w=scPx*0.75,h=scPx/4,vx=scPx/8,target='Enemy'):
 		self.x=x
 		self.y=y
 		self.r=scPx*0.75
 		self.img=img
 		self.w=w
 		self.h=h
-		self.vx=scPx/8
+		self.vx=vx
+		self.target=target
 	
 	def update(self):
 		self.x+=self.vx
@@ -290,20 +299,32 @@ class Bullet:
 		self.update()
 		image(self.img,self.x-g.x,self.y,self.w,self.h)
 		
-		
-		for m in g.monster:
-			if self.x+self.r>=m.x and (m.y-m.r <= self.y <= m.y+m.r):
-				g.monster.remove(m)
-				del m
+		if self.target=='Enemy':
+			for m in g.monster:
+				if self.x+self.r>=m.x and (m.y-m.r <= self.y <= m.y+m.r):
+					g.monster.remove(m)
+					del m
+					g.dave.bullet.remove(self)
+					del self
+					g.score+=300
+					return
+			
+			# bullet deletes if it goes off screen
+			if self.x-g.x>=g.w:
 				g.dave.bullet.remove(self)
 				del self
-				g.score+=300
-				return
-		
-		# bullet deletes if it goes off screen
-		if self.x-g.x>=g.w:
-			g.dave.bullet.remove(self)
-			del self
+
+		elif self.target=='Dave':
+			if g.dave.distanceCircle(self.x,self.y)<=g.dave.r+self.r:
+				g.lives-=1
+				g.dave.x=resetXY[g.level-1][0]
+				g.dave.y=resetXY[g.level-1][1]
+				self.mbullet=False
+				del self
+
+			elif self.x-g.x<=0:
+				self.mbullet=False
+				del self
 
 class Monster(Character):
 	def __init__(self,x,y,r,img,g,F,theta,r1):
@@ -312,6 +333,8 @@ class Monster(Character):
 		self.r1 = r1
 		self.cx = x
 		self.cy = y
+		self.mbullet=False
+		self.bullet=[]
 
 	def update(self):
 		self.f = (self.f+0.4)%self.F
@@ -319,6 +342,33 @@ class Monster(Character):
 		
 		self.x = self.cx + self.r1 * cos(self.theta*PI/180)
 		self.y = self.cy + self.r1 * sin(self.theta*PI/180)
+
+		rando=random.choice([scPx*4,scPx*5,scPx*6])
+		
+		if self.x-g.x<=g.w and self.mbullet==False:
+			# top=self.cx-self.r1
+			# bottom=self.cx+self.r1-scPx
+			print(self.y)
+			if scPx*5<self.y<scPx*6:
+				self.bullet.append(Bullet(self.x,scPx*5.5,r=scPx*0.75,img=img_dict['Bullet2'],w=scPx*0.75,h=scPx/4,vx=-(scPx/8),target='Dave'))
+				print('oh nooo')
+				for i in self.bullet:	
+					print(i.x,i.y)
+					i.display()
+				self.mbullet=True
+
+			# if g.dave.distanceCircle(self.x,self.y)<=g.dave.r+b.r:
+			# 	g.lives-=1
+			# 	g.dave.x=resetXY[g.level-1][0]
+			# 	g.dave.y=resetXY[g.level-1][1]
+			# 	self.mbullet=False
+			# 	del b
+
+			# if self.x-g.x<=0:
+			# 	self.mbullet=False
+			# 	del b				
+
+
 
 class Game:
 	def __init__(self,w,h,g):
@@ -342,6 +392,7 @@ class Game:
 		self.gun=[]
 		self.trophy=[]
 		self.monster=[]
+		self.jetpack=[]
 		self.levelChange()
 
 	def level1(self):
@@ -379,12 +430,18 @@ class Game:
 		self.dave.y=resetXY[1][1]
 
 		BluePlatforms2=[[0,7,62],[0,3,62]]
-		WallPlatforms2=[[0,1,71],[0,2,64],[70,2,2],[0,8,63],[71,8,2],[0,9,64],[70,9,2],[0,10,71],[63,5,1],[66,5,1],[72,7,2],[71,3,2],[71,4,20]]
+		WallPlatforms2=[[0,1,71],[0,2,64],[70,2,2],[0,8,63],[71,8,2],[0,9,64],[70,9,2],[0,10,71],[72,7,2],[71,3,2],[71,4,20]]
 		for i in range(10):
 			WallPlatforms2.append([0,i+1,1])
 		Killers2=[[5,6],[9,6],[13,6],[14,6],[19,6],[23,6],[27,6],[31,6],[35,6],[36,6],[40,6],[44,6],[47,6],[52,6],[53,6]]
-		Fires2=[[64,7]]
+		# Fires2=[[64,7]]
+		Fires2=[]
 		Gems2=[[5,4],[14,4],[19,4],[52,4],[56,4]]
+
+		Platforms2=[[63,5,1],[66,5,1]]
+
+		for i in Platforms2:
+			self.platforms.append(Platform(i[0]*scPx,i[1]*scPx,i[2],img_dict['Wall']))
 
 		for i in BluePlatforms2:
 			self.platforms.append(Platform(i[0]*scPx,i[1]*scPx,i[2],img_dict['Blue']))
@@ -398,15 +455,13 @@ class Game:
 		for i in Fires2:
 			self.killer.append(Killer(i[0]*scPx,i[1]*scPx,img_dict['Fire']))
 
-
-
 		for i in Gems2:
 			self.gems.append(Gem(i[0]*scPx,i[1]*scPx))
 
 		self.monster.append(Monster(scPx*34,scPx*5.5,scPx,img_dict['Monster'],scPx*8,4,0,scPx))
 		self.monster.append(Monster(scPx*54,scPx*5.5,scPx,img_dict['Monster'],scPx*8,4,0,scPx))
 		self.gun.append(Gem(10*scPx,4*scPx,img_dict['Gun']))
-
+		self.jetpack.append(Gem(scPx*66,scPx*9,img_dict['Jetpack']))
 		self.trophy.append(Trophy(scPx*67,scPx*9))
 
 	def transition(self):
@@ -443,6 +498,8 @@ class Game:
 		del self.trophy[:]
 		self.dave.dir=1
 		self.dave.f=2
+		self.trophyCollected=False
+		self.gunCollected=False
 
 	def checkWin(self):
 		if self.level==1:
@@ -460,6 +517,9 @@ class Game:
 		textAlign(LEFT, CENTER)
 		textFont(font, 0.75*scPx)
 
+		if self.dave.gunCollected==True:
+			text("GUN",scPx*13,scPx*11.5)
+			image(img_dict['Gun'], scPx*16,scPx*11,scPx,scPx)
 
 		for i in self.platforms:
 			i.display()
@@ -478,6 +538,8 @@ class Game:
 		for i in self.dave.bullet:
 			i.display()
 		for i in self.monster:
+			i.display()
+		for i in self.jetpack:
 			i.display()
 
 		text("SCORE: {0}".format(g.score),0,scPx/2)
@@ -538,7 +600,7 @@ def keyPressed():
 		if keyCode==UP:
 			g.dave.jump=True
 
-		#instantiate bullet
+		#instantiate bullet when ctrl key is pressed
 		if keyCode==17 and g.dave.gunCollected==True and g.dave.bullet==[]:
 			g.dave.bullet.append(Bullet(g.dave.x,g.dave.y))
 			print("bang")
@@ -555,13 +617,3 @@ def keyReleased():
 		g.dave.vx=0
 	if keyCode==UP:
 		g.dave.jump=False
-
-
-"""
-1. Make Circle for the person
-2. Add velocties vx and vy and speeds and directions for him
-3. Add keyboards to make him move
-4. Add ground and the respective borders
-5. Make Game class
-6. Make person class
-7. Make obstacle class
